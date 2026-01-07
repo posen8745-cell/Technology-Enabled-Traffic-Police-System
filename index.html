@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>T字路口｜完美版：Adaptive 科技義交（主2拆左右轉）</title>
+  <title>T字路口｜完美版-B：M1T 後半段重疊 M2R + 衝突區占用檢測</title>
   <style>
     :root{
       --bg:#0b1220;
@@ -138,7 +138,6 @@
       border-radius: 6px;
       border: 1px solid rgba(255,255,255,0.10);
     }
-
     .modeBtns{ display:flex; gap:10px; margin-top: 6px; }
     .modeBtn{
       flex:1;
@@ -157,7 +156,6 @@
       background: linear-gradient(180deg, rgba(60,255,140,0.18), rgba(0,0,0,0.10));
     }
     .modeBtn:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
-
     .subcard.disabled{
       opacity: .45;
       filter: grayscale(1);
@@ -173,9 +171,9 @@
 
     <div class="card panel">
       <h1>
-        ✅ 完美版：Adaptive 科技義交（pressure選相位＋延長綠＋跳過空相位＋防餓死）<br/>
-        ✅ 主線2 拆成「左轉相位 / 右轉相位」（你要的：右車道左轉）<br/>
-        ✅ 行人：仍只擋衝突方向（避免全靜止）
+        ✅ 完美版-B：Adaptive 科技義交（主2拆左右轉）<br/>
+        ✅ 進階：M1 右邊左轉（M1T_G）後半段「條件式重疊」放主2右轉（M2R）<br/>
+        ✅ 保護：衝突區占用檢測（有下轉車佔用就暫停重疊）
       </h1>
 
       <div class="pill">
@@ -276,10 +274,10 @@
         </div>
 
         <div class="note">
-          ✅ 本版重點：<br/>
-          1) 主2拆成 M2L / M2R 兩個相位（箭頭分開放）<br/>
-          2) 每次相位結束，用 pressure 選下一個要放誰（像義交看哪邊塞）<br/>
-          3) 綠燈可延長（min/max）、沒車跳過、且有防餓死（每個方向都會輪到）
+          ✅ 重疊規則（B版）：<br/>
+          - 只在 <code>M1T_G</code> 的後半段，且主2右轉排隊夠多時才重疊開 <code>M2R</code><br/>
+          - 若衝突區內有「正在往下轉」的車，立即禁止重疊（避免交織鎖死）<br/>
+          - 主2左轉 <code>M2L</code> 仍由獨立相位控制（不會同放）
         </div>
       </div>
 
@@ -424,7 +422,7 @@
       : '右斑馬線：目前「無」— 行人序列：左→下（跳過右）';
   }
 
-  // Ped sequence (left -> (right optional) -> bottom)
+  // Ped sequence
   let pedSteps = [];
   let pedIndex = 0;
 
@@ -444,46 +442,44 @@
     return steps;
   }
 
-  // ===== 控制器（你要調參數主要看這裡） =====
+  // ===== 控制器（B版重疊設定在這） =====
   const CTRL = {
-    // 延長綠判斷
-    EXTEND_IF_Q_GE: 2,   // queue >= 2 延長
+    EXTEND_IF_Q_GE: 2,
     EXTEND_STEP: 1,
 
-    // 綠燈 min/max（分 movement）
     M1S_MIN: 10, M1S_MAX: 50,
     M1T_MIN: 10, M1T_MAX: 65,
-    M2L_MIN: 10, M2L_MAX: 80,  // 主2左轉（通常尖峰痛點）
+    M2L_MIN: 10, M2L_MAX: 80,
     M2R_MIN: 8,  M2R_MAX: 55,
 
-    // 跳過相位
     SKIP_IF_Q_LE: 0,
 
-    // 防餓死：超過這秒數沒放到，就加權拉上來
     STARVE_SEC: 60,
     STARVE_BONUS: 6,
 
-    // 行人策略：true=每輪都一定會放行人；false=壓力太大可延後
     PED_ALWAYS: true,
-    PED_MAX_DELAY: 120,     // 若 PED_ALWAYS=false，最多延後多少秒後必放
-    PED_SUPPRESS_IF_PRESSURE_GE: 16, // 壓力太大時可延後（只有 PED_ALWAYS=false 才用）
+    PED_MAX_DELAY: 120,
+    PED_SUPPRESS_IF_PRESSURE_GE: 16,
+
+    // ✅ B版：M1T 後半段重疊放主2右轉
+    OVERLAP_M2R_WITH_M1T: true,
+    OVERLAP_M2R_MIN_Q: 2,         // 主2右轉排隊 >= 2 才重疊
+    OVERLAP_M1T_START_RATIO: 0.55,// M1T_G 進行到 55% 後才允許重疊
+    OVERLAP_CONFLICT_PAD: 18,      // 衝突區擴張 padding（像安全區）
   };
 
   // ===== Phases（拆主2左右轉） =====
   const PH = {
-    // greens
     M1S_G:'M1S_G',
     M1T_G:'M1T_G',
     M2L_G:'M2L_G',
     M2R_G:'M2R_G',
     PSEQ:'PSEQ',
 
-    // yellows
     M1_Y:'M1_Y',
     M2L_Y:'M2L_Y',
     M2R_Y:'M2R_Y',
 
-    // all-red buffers
     AR:'AR',
   };
 
@@ -491,61 +487,12 @@
   let remaining = 0;
   let phaseElapsed = 0;
 
-  // 用來做 starvation
-  const lastServedAt = {
-    M1S: 0, M1T: 0, M2L: 0, M2R: 0, PED: 0
-  };
+  const lastServedAt = { M1S:0, M1T:0, M2L:0, M2R:0, PED:0 };
   let simSec = 0;
 
   function activePedStep(){
     if (phase !== PH.PSEQ) return null;
     return pedSteps[pedIndex] || { key:'NONE_CLEAR', dur: 0 };
-  }
-
-  // signal 狀態（主2左右轉分開）
-  function signals(){
-    const all = {
-      m1: SIG.RED,
-      m2L: SIG.RED,
-      m2R: SIG.RED,
-      pedLeft: 'STOP',
-      pedRight: 'STOP',
-      pedBottom: 'STOP',
-      pedMode: 'NONE',
-      pedWhich: 'NONE',
-    };
-
-    if (phase === PH.PSEQ){
-      const step = activePedStep();
-      const s = { ...all };
-      const isWalk = step.key.endsWith('_WALK');
-      const isClear = step.key.endsWith('_CLEAR');
-
-      if (step.key.startsWith('LEFT_')){
-        s.pedLeft = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
-        s.pedWhich = 'LEFT';
-      } else if (step.key.startsWith('RIGHT_')){
-        s.pedRight = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
-        s.pedWhich = 'RIGHT';
-      } else if (step.key.startsWith('BOTTOM_')){
-        s.pedBottom = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
-        s.pedWhich = 'BOTTOM';
-      } else {
-        s.pedWhich = 'NONE';
-      }
-      s.pedMode = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'NONE');
-      return s;
-    }
-
-    if (phase === PH.M1S_G || phase === PH.M1T_G) return { ...all, m1: SIG.GREEN };
-    if (phase === PH.M1_Y) return { ...all, m1: SIG.YELLOW };
-
-    if (phase === PH.M2L_G) return { ...all, m2L: SIG.GREEN };
-    if (phase === PH.M2R_G) return { ...all, m2R: SIG.GREEN };
-    if (phase === PH.M2L_Y) return { ...all, m2L: SIG.YELLOW };
-    if (phase === PH.M2R_Y) return { ...all, m2R: SIG.YELLOW };
-
-    return all;
   }
 
   // ===== Cars =====
@@ -557,7 +504,7 @@
   function stopLine(car, g){
     if (car.kind === 'M1L') return g.stop.m1_left;
     if (car.kind === 'M1R') return g.stop.m1_right;
-    return g.stop.m2_in; // M2
+    return g.stop.m2_in;
   }
 
   function pastStop(car, g){
@@ -574,7 +521,6 @@
     return car.y - car.h/2 <= s + 2;
   }
 
-  // 行人只擋衝突方向
   function pedAllowsCar(car, sig){
     if (phase !== PH.PSEQ) return true;
     const which = sig.pedWhich;
@@ -586,6 +532,42 @@
     if (which === 'BOTTOM' && car.kind === 'M2')  return false;
 
     return true;
+  }
+
+  // ===== 衝突區占用檢測（B版重點） =====
+  function rectOverlap(ax,ay,aw,ah, bx,by,bw,bh){
+    return !(ax+aw < bx || bx+bw < ax || ay+ah < by || by+bh < ay);
+  }
+
+  // 定義「交織衝突區」：靠近路口中心 + 轉下去路徑的匯入處
+  function conflictZone(g){
+    const pad = CTRL.OVERLAP_CONFLICT_PAD;
+    // 一個簡化的矩形：路口中心附近（你可依視覺再調）
+    const x = g.road.x - 70 - pad;
+    const y = g.road.y - 40 - pad;
+    const w = 140 + pad*2;
+    const h = 120 + pad*2;
+    return { x,y,w,h };
+  }
+
+  function conflictOccupiedByDownTurners(g){
+    const z = conflictZone(g);
+    for (const c of cars){
+      // 只看「正在往下轉」且還沒離開衝突區附近的車
+      const isDownTurn = (c.route === 'down') && (c.kind === 'M1L' || c.kind === 'M1R');
+      if (!isDownTurn) continue;
+
+      // 車的包圍盒（用 w/h）
+      const bx = c.x - c.w/2;
+      const by = c.y - c.h/2;
+      const bw = c.w;
+      const bh = c.h;
+
+      if (rectOverlap(z.x,z.y,z.w,z.h, bx,by,bw,bh)){
+        return true;
+      }
+    }
+    return false;
   }
 
   // ===== 量排隊（含主2左右轉） =====
@@ -620,7 +602,7 @@
     return { m1TurnQ, m1StraightQ, m2Q, m2LQ, m2RQ };
   }
 
-  // ===== 生成車：主2右車道左轉（固定） =====
+  // ===== Auto 模式（只影響生成比例/基礎秒數） =====
   const MODES = {
     AM:  { name:'早上',  M1_SG: 22, M1_TG: 40, M2_G: 34, spawn: 0.22 },
     MID: { name:'平峰',  M1_SG: 26, M1_TG: 28, M2_G: 38, spawn: 0.20 },
@@ -636,46 +618,44 @@
     ui.tM2G.value  = m.M2_G;
     ui.spawn.value = m.spawn;
 
-    // 固定行人秒數（你原本的）
     ui.pLeftOn.checked = true;
     ui.pLeftWalk.value = 10;
     ui.pLeftClr.value  = 6;
-    ui.pRightWalk.value = 10;
-    ui.pRightClr.value  = 6;
     ui.pBottomOn.checked = true;
     ui.pBottomWalk.value = 20;
     ui.pBottomClr.value  = 8;
+    ui.pRightWalk.value = 10;
+    ui.pRightClr.value = 6;
 
     currentAutoMode = modeKey;
     ui.autoHint.textContent = `Auto：目前模式 ${modeKey}｜${m.name}`;
     softApply();
   }
 
+  // ===== 生成車：主2右車道左轉（你要求） =====
   function spawnCar(g){
     const p = Number(ui.spawn.value);
     if (Math.random() > p) return;
 
     const sp = rnd(95, 145);
 
-    // 只是控制來源比例（不是控燈）
     let base = { m1rLeft: 0.35, m2Heavy: 0.35, others: 0.30 };
     if (currentAutoMode === 'AM')  base = { m1rLeft: 0.40, m2Heavy: 0.30, others: 0.30 };
     if (currentAutoMode === 'PM2') base = { m1rLeft: 0.30, m2Heavy: 0.40, others: 0.30 };
 
     const r = Math.random();
 
-    // 右主線左轉（往下）
     if (r < base.m1rLeft){
       cars.push({ kind:'M1R', route:'down', x:g.W+80, y:g.lane.m1_west_y, vx:-sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
       return;
     }
 
-    // 主2重點流量：右車道左轉（你要的）
+    // 主2重點：右車道左轉
     if (r < base.m1rLeft + base.m2Heavy){
       cars.push({
         kind:'M2',
-        laneIdx: 1,              // ✅ 右車道
-        route: 'toLeft',         // ✅ 右車道左轉
+        laneIdx: 1,
+        route: 'toLeft',
         x: g.lane.stem_in_x[1],
         y: g.H + 90,
         vx: 0, vy: -sp,
@@ -685,16 +665,15 @@
       return;
     }
 
-    // 其他：混一點
+    // 其他：左車道右轉固定 + 其他混入
     const rr = Math.random();
     if (rr < 0.50){
       cars.push({ kind:'M1R', route:'straight', x:g.W+80, y:g.lane.m1_west_y, vx:-sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
     } else if (rr < 0.85){
-      // 左車道右轉（固定）
       cars.push({
         kind:'M2',
-        laneIdx: 0,              // ✅ 左車道
-        route: 'toRight',        // ✅ 左車道右轉
+        laneIdx: 0,
+        route: 'toRight',
         x: g.lane.stem_in_x[0],
         y: g.H + 90,
         vx: 0, vy: -sp,
@@ -707,11 +686,95 @@
     }
   }
 
-  // ===== 允許通行（主2依相位/route 分開） =====
+  // ===== B版：判斷是否允許重疊放 M2R（核心） =====
+  function canOverlapM2RWithM1T(g, q){
+    if (!CTRL.OVERLAP_M2R_WITH_M1T) return false;
+    if (phase !== PH.M1T_G) return false;
+
+    // 1) M1T 後半段才允許（避免交織）
+    const d = getDur();
+    const baseM1T = d.M1TG;
+    const ratio = baseM1T <= 0 ? 1 : (phaseElapsed / baseM1T);
+    if (ratio < CTRL.OVERLAP_M1T_START_RATIO) return false;
+
+    // 2) 主2右轉排隊夠多
+    if (q.m2RQ < CTRL.OVERLAP_M2R_MIN_Q) return false;
+
+    // 3) 衝突區占用：有下轉車佔用就禁止
+    if (conflictOccupiedByDownTurners(g)) return false;
+
+    // 4) 行人下方正在走時，不允許（你的控制器是獨立行人相位，這裡保險留著）
+    if (phase === PH.PSEQ) return false;
+
+    return true;
+  }
+
+  // ===== signals（把重疊燈做進去） =====
+  function signals(){
+    const all = {
+      m1: SIG.RED,
+      m2L: SIG.RED,
+      m2R: SIG.RED,
+      pedLeft: 'STOP',
+      pedRight: 'STOP',
+      pedBottom: 'STOP',
+      pedMode: 'NONE',
+      pedWhich: 'NONE',
+    };
+
+    if (phase === PH.PSEQ){
+      const step = activePedStep();
+      const s = { ...all };
+      const isWalk = step.key.endsWith('_WALK');
+      const isClear = step.key.endsWith('_CLEAR');
+
+      if (step.key.startsWith('LEFT_')){
+        s.pedLeft = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
+        s.pedWhich = 'LEFT';
+      } else if (step.key.startsWith('RIGHT_')){
+        s.pedRight = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
+        s.pedWhich = 'RIGHT';
+      } else if (step.key.startsWith('BOTTOM_')){
+        s.pedBottom = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
+        s.pedWhich = 'BOTTOM';
+      } else {
+        s.pedWhich = 'NONE';
+      }
+      s.pedMode = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'NONE');
+      return s;
+    }
+
+    // 主1綠
+    if (phase === PH.M1S_G){
+      return { ...all, m1: SIG.GREEN };
+    }
+
+    // ✅ B版重疊：M1T_G 綠時，可能同時開 M2R 綠
+    if (phase === PH.M1T_G){
+      const g = geom();
+      const q = measureQueues(g);
+      const overlap = canOverlapM2RWithM1T(g, q);
+      return { ...all, m1: SIG.GREEN, m2R: overlap ? SIG.GREEN : SIG.RED, m2L: SIG.RED };
+    }
+
+    // 主1黃
+    if (phase === PH.M1_Y) return { ...all, m1: SIG.YELLOW };
+
+    // 主2左/右轉綠（非重疊時由相位控制）
+    if (phase === PH.M2L_G) return { ...all, m2L: SIG.GREEN };
+    if (phase === PH.M2R_G) return { ...all, m2R: SIG.GREEN };
+
+    // 主2黃
+    if (phase === PH.M2L_Y) return { ...all, m2L: SIG.YELLOW };
+    if (phase === PH.M2R_Y) return { ...all, m2R: SIG.YELLOW };
+
+    return all;
+  }
+
+  // ===== allowedBySignal（已支援主2左右分流，重疊燈會自然生效） =====
   function allowedBySignal(car, sig, g){
     if (phase === PH.PSEQ) return pedAllowsCar(car, sig);
 
-    // 主線1
     if (car.kind === 'M1L' || car.kind === 'M1R'){
       if (sig.m1 === SIG.YELLOW) return pastStop(car, g);
       if (sig.m1 !== SIG.GREEN) return false;
@@ -722,19 +785,16 @@
       }
       if (phase === PH.M1T_G){
         if (pastStop(car, g)) return true;
-        return (car.route === 'down' || car.route === 'straight'); // 半重疊
+        return (car.route === 'down' || car.route === 'straight');
       }
       return false;
     }
 
-    // 主線2：分成左轉相位 / 右轉相位
     if (car.kind === 'M2'){
       if (sig.m2L === SIG.GREEN) return car.route === 'toLeft' || pastStop(car, g);
       if (sig.m2R === SIG.GREEN) return car.route === 'toRight' || pastStop(car, g);
 
-      // 黃燈：過線者放行
       if (sig.m2L === SIG.YELLOW || sig.m2R === SIG.YELLOW) return pastStop(car, g);
-
       return false;
     }
 
@@ -901,14 +961,13 @@
     zebra(g.xwalk.bottom.x, g.xwalk.bottom.y, g.xwalk.bottom.w, g.xwalk.bottom.h, 'horizontal');
 
     ctx.strokeStyle='rgba(255,255,255,0.60)'; ctx.lineWidth=4;
-
     ctx.beginPath(); ctx.moveTo(g.stop.m1_left,  g.road.y+g.road.h/2-6); ctx.lineTo(g.stop.m1_left,  g.road.y+6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(g.stop.m1_right, g.road.y-g.road.h/2+6); ctx.lineTo(g.stop.m1_right, g.road.y-6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(g.road.x+6, g.stop.m2_in); ctx.lineTo(g.road.x+g.road.w/2-6, g.stop.m2_in); ctx.stroke();
 
     ctx.fillStyle = 'rgba(232,238,252,0.78)';
     ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillText('主線1：直行/往下轉（半重疊）', 14, g.road.y + 60);
+    ctx.fillText('主線1：直行/往下轉（M1T後半段可重疊放M2右轉）', 14, g.road.y + 60);
     ctx.fillText('主線2：右車道左轉、左車道右轉（相位分開放）', g.road.x - 205, g.H-18);
   }
 
@@ -975,7 +1034,6 @@
     draw3Lamp(g.stop.m1_left-14,  g.road.y+g.road.h/2-30, sig.m1);
     draw3Lamp(g.stop.m1_right+14, g.road.y-g.road.h/2+30, sig.m1);
 
-    // 主2 左/右轉分開顯示
     drawArrowLamp(g.road.x+48, g.stop.m2_in+42, sig.m2L, 'L');
     drawArrowLamp(g.road.x+20, g.stop.m2_in+42, sig.m2R, 'R');
 
@@ -1012,9 +1070,8 @@
     }
   }
 
-  // ===== Phase picking（科技義交核心：選下一個放誰） =====
+  // ===== Phase picking（科技義交核心） =====
   function pressureScore(key, q){
-    // 基本 pressure：queue
     let base =
       key === 'M1S' ? q.m1StraightQ :
       key === 'M1T' ? q.m1TurnQ :
@@ -1022,7 +1079,6 @@
       key === 'M2R' ? q.m2RQ :
       0;
 
-    // starvation 加權
     const last = lastServedAt[key] || 0;
     const wait = Math.max(0, simSec - last);
     if (wait >= CTRL.STARVE_SEC) base += CTRL.STARVE_BONUS;
@@ -1036,12 +1092,9 @@
 
   function pickNextGreen(q){
     const cands = ['M1S','M1T','M2L','M2R'];
-
-    // 沒車：隨便給一個最短的（避免卡死）
     const anyDemand = (q.m1StraightQ + q.m1TurnQ + q.m2LQ + q.m2RQ) > 0;
     if (!anyDemand) return 'M1S';
 
-    // 取最大 pressure
     let best = cands[0];
     let bestScore = -1e9;
     for (const k of cands){
@@ -1088,7 +1141,6 @@
 
     const d = getDur();
 
-    // 行人相位
     if (phase === PH.PSEQ){
       pedSteps = buildPedSteps();
       pedIndex = 0;
@@ -1097,32 +1149,28 @@
       return;
     }
 
-    // 黃/全紅固定秒數
     if (phase === PH.M1_Y)  { remaining = d.M1Y; return; }
     if (phase === PH.M2L_Y) { remaining = d.M2Y; return; }
     if (phase === PH.M2R_Y) { remaining = d.M2Y; return; }
     if (phase === PH.AR)    { remaining = d.AR;  return; }
 
-    // 綠燈：先給基礎秒（之後會延長/縮短）
     if (phase === PH.M1S_G) remaining = d.M1SG;
     if (phase === PH.M1T_G) remaining = d.M1TG;
     if (phase === PH.M2L_G) remaining = d.M2G;
     if (phase === PH.M2R_G) remaining = d.M2G;
 
-    // 若此綠燈完全沒需求 → 直接縮到 1 秒（下一秒會切走）
     const g = geom();
     const q = measureQueues(g);
     const dem = demandForGreen(phase, q);
     if (dem <= CTRL.SKIP_IF_Q_LE) remaining = 1;
 
-    // 紀錄 serve 時間（真正進綠燈時算）
     if (phase === PH.M1S_G) lastServedAt.M1S = simSec;
     if (phase === PH.M1T_G) lastServedAt.M1T = simSec;
     if (phase === PH.M2L_G) lastServedAt.M2L = simSec;
     if (phase === PH.M2R_G) lastServedAt.M2R = simSec;
   }
 
-  // ===== 相位推進：綠->黃->全紅->(下一綠 or 行人) =====
+  // ===== timing =====
   let pedDue = 0;
 
   function nextAfterGreen(ph){
@@ -1142,81 +1190,68 @@
     const g = geom();
     const q = measureQueues(g);
 
-    // === 綠燈：min/max + 需求延長 ===
     if (phase === PH.M1S_G || phase === PH.M1T_G || phase === PH.M2L_G || phase === PH.M2R_G){
       const [minG, maxG] = minMaxForGreen(phase);
       const dem = demandForGreen(phase, q);
 
       if (phaseElapsed < minG){
-        remaining = 1; // 撐住 min green
+        remaining = 1;
         return;
       }
 
       if (dem >= CTRL.EXTEND_IF_Q_GE && phaseElapsed < maxG){
-        remaining = CTRL.EXTEND_STEP; // 延長 1 秒後再評估
+        remaining = CTRL.EXTEND_STEP;
         return;
       }
 
-      // 結束綠：進入對應黃
       enterPhase(nextAfterGreen(phase));
       return;
     }
 
-    // === 行人序列 ===
     if (phase === PH.PSEQ){
       pedIndex += 1;
       if (pedIndex < pedSteps.length){
         remaining = pedSteps[pedIndex].dur;
         return;
       }
-      // 行人結束 → 全紅
       enterPhase(PH.AR);
       return;
     }
 
-    // === 黃燈結束 → 全紅 ===
     if (phase === PH.M1_Y || phase === PH.M2L_Y || phase === PH.M2R_Y){
       enterPhase(PH.AR);
       return;
     }
 
-    // === 全紅結束：選下一個要放的綠燈（或行人） ===
     if (phase === PH.AR){
       const pressure = totalPressure(q);
 
-      // 行人策略：必放 or 可延後
-      const pedNeed = true; // 你目前沒有按鈕偵測，先視為 always need（可改成看 checkbox 是否全關）
-      const allowSuppress = !CTRL.PED_ALWAYS && pressure >= CTRL.PED_SUPPRESS_IF_PRESSURE_GE;
-
       if (CTRL.PED_ALWAYS){
-        // 每輪都放行人：你想更像市區路口就用這個
-        // 但也避免太頻繁：至少隔 1 個綠燈（用 pedDue 控制）
         if (simSec >= pedDue){
-          pedDue = simSec + 1; // 下一次最快也要隔 1 秒後再判斷（避免連續）
+          pedDue = simSec + 1;
           enterPhase(PH.PSEQ);
           return;
         }
       } else {
-        // 可延後版本（比較救尖峰）
+        const allowSuppress = pressure >= CTRL.PED_SUPPRESS_IF_PRESSURE_GE;
         const maxDelayReached = (simSec - lastServedAt.PED) >= CTRL.PED_MAX_DELAY;
-        if ((pedNeed && !allowSuppress) || maxDelayReached){
+        if (!allowSuppress || maxDelayReached){
           enterPhase(PH.PSEQ);
           return;
         }
       }
 
-      // 選下一個綠燈：pressure 最大者
       const nextKey = pickNextGreen(q);
       enterPhase(greenFromKey(nextKey));
       return;
     }
   }
 
-  // ===== UI / 標籤 =====
+  // ===== UI =====
   function phaseLabel(sig){
     if (phase === PH.PSEQ) return [`行人：${sig.pedWhich} ${sig.pedMode}`, sig.pedMode==='WALK' ? 'green' : 'yellow'];
     if (phase === PH.M1S_G) return ['主線1 直行綠','green'];
-    if (phase === PH.M1T_G) return ['主線1 半重疊綠（直+轉）','green'];
+    if (phase === PH.M1T_G) return ['主線1 半重疊綠（後半段可重疊M2右轉）','green'];
     if (phase === PH.M2L_G) return ['主線2 左轉綠（右車道左轉）','green'];
     if (phase === PH.M2R_G) return ['主線2 右轉綠（左車道右轉）','green'];
     if (phase === PH.M1_Y)  return ['主線1 黃','yellow'];
@@ -1241,7 +1276,7 @@
     ui.qText.textContent = `M1T:${q.m1TurnQ} M1S:${q.m1StraightQ} M2L:${q.m2LQ} M2R:${q.m2RQ} (M2:${q.m2Q})`;
   }
 
-  // ===== controls / loop =====
+  // ===== loop =====
   let running = true;
   let acc = 0;
   let last = performance.now();
@@ -1254,12 +1289,9 @@
       remaining = Math.min(remaining, pedSteps[pedIndex]?.dur ?? remaining);
       return;
     }
-    const d = getDur();
-    // 不硬改 remaining；讓 adaptive 控制器接手（避免 UI change 造成跳秒）
     remaining = Math.max(1, remaining);
   }
 
-  // events
   for (const el of [
     ui.tM1SG, ui.tM1TG, ui.tM1Y, ui.tM2G, ui.tM2Y, ui.tAR, ui.spawn,
     ui.pLeftOn, ui.pBottomOn,
@@ -1335,15 +1367,14 @@
     requestAnimationFrame(step);
   }
 
-  // start
   (function init(){
-    // 固定行人秒數（你原本設定）
     ui.pLeftOn.checked = true;  ui.pLeftWalk.value = 10; ui.pLeftClr.value = 6;
     ui.pBottomOn.checked = true;ui.pBottomWalk.value = 20;ui.pBottomClr.value = 8;
     ui.pRightWalk.value = 10;   ui.pRightClr.value = 6;
 
     applyMode('MID');
     setRightXwalk(true);
+
     pedSteps = buildPedSteps();
     enterPhase(PH.M1S_G);
 
