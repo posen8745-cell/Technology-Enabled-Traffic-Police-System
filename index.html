@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>T字路口｜科技交警版：Spillback救援 + 動態綠燈上限 + M1T後半段重疊M2R（含衝突區保護）</title>
+  <title>T字路口｜科技交警版（取消早晚）＋主2右車道=畫面右邊＋車流百分比可調</title>
   <style>
     :root{
       --bg:#0b1220;
@@ -138,6 +138,7 @@
       border-radius: 6px;
       border: 1px solid rgba(255,255,255,0.10);
     }
+
     .modeBtns{ display:flex; gap:10px; margin-top: 6px; }
     .modeBtn{
       flex:1;
@@ -155,11 +156,20 @@
       box-shadow: 0 0 0 2px rgba(60,255,140,0.20) inset;
       background: linear-gradient(180deg, rgba(60,255,140,0.18), rgba(0,0,0,0.10));
     }
-    .modeBtn:disabled{opacity:.55; cursor:not-allowed; box-shadow:none}
     .subcard.disabled{
       opacity: .45;
       filter: grayscale(1);
       pointer-events: none;
+    }
+
+    select{
+      width:190px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.22);
+      color: var(--text);
+      outline:none;
     }
   </style>
 </head>
@@ -171,10 +181,10 @@
 
     <div class="card panel">
       <h1>
-        ✅ 科技交警版：<br/>
-        1) 主2拆左右轉（你要求：右車道左轉）<br/>
-        2) M1T 後半段「可重疊」放 M2R（含衝突區占用保護）<br/>
-        3) ✅ Spillback 回堵偵測：快塞爆就「強制插隊放行」＋「動態拉長 max green」救尖峰
+        ✅ 科技交警版（已取消早晚選項）<br/>
+        ✅ 主2 兩車道：<b>畫面右邊車道＝右轉</b>、畫面左邊車道＝左轉<br/>
+        ✅ M1T 後半段可重疊放 M2 右轉（有衝突區占用保護）<br/>
+        ✅ Spillback 回堵偵測：快塞爆就插入救援相位＋動態拉長 max green
       </h1>
 
       <div class="pill">
@@ -182,24 +192,7 @@
         <span id="phaseText">Phase：--</span>
       </div>
 
-      <div class="divider"></div>
-
-      <div class="row">
-        <label>Auto（只改基礎秒數/生成率）</label>
-        <input type="checkbox" id="autoMode" checked />
-      </div>
-      <div class="tiny" id="autoHint" style="margin-top:-6px;">
-        科技交警會在尖峰「直接插入救援相位」，不完全依賴固定秒數
-      </div>
-
-      <div class="modeBtns">
-        <button class="modeBtn" id="btnMorning">早上</button>
-        <button class="modeBtn" id="btnEvening">晚上</button>
-      </div>
-      <div class="tiny" id="manualHint" style="margin-top:6px;">
-        手動：按下「早上/晚上」會直接套用（並自動關掉 Auto）。
-      </div>
-
+      <!-- ✅ 右斑馬線 有/無 -->
       <div class="modeBtns" style="margin-top:10px;">
         <button class="modeBtn" id="btnRightXwalkOn">有右斑馬線</button>
         <button class="modeBtn" id="btnRightXwalkOff">無右斑馬線</button>
@@ -242,6 +235,21 @@
         <input type="number" id="spawn" min="0" max="1" step="0.05" value="0.20" />
       </div>
 
+      <!-- ✅ 車流百分比（4個空），剩下自動補到「主1右來直行」 -->
+      <div class="subcard">
+        <div class="tiny">
+          設定四個比例（0~100）。<br/>
+          剩下比例會自動補到：<code>主1右來直行</code>（避免總和不到 100% 時亂跑）。<br/>
+          主2車道已固定：<code>畫面右邊車道＝右轉（laneIdx:1）</code>、<code>畫面左邊車道＝左轉（laneIdx:0）</code>
+        </div>
+
+        <div class="row"><label>右邊主1左轉(往下) (%)</label><input type="number" id="pct_M1R_L" min="0" max="100" value="30"></div>
+        <div class="row"><label>左邊主1直行 (%)</label><input type="number" id="pct_M1L_S" min="0" max="100" value="10"></div>
+        <div class="row"><label>主2右車道右轉 (%)</label><input type="number" id="pct_M2_R" min="0" max="100" value="30"></div>
+        <div class="row"><label>主2左車道左轉 (%)</label><input type="number" id="pct_M2_L" min="0" max="100" value="10"></div>
+        <div class="tiny" id="pctHint" style="margin-top:6px;">--</div>
+      </div>
+
       <div class="subcard">
         <div class="tiny">
           行人序列：左→（右可選）→下。每條會跑 <code>WALK</code> 再跑 <code>CLEAR</code>。<br/>
@@ -275,10 +283,8 @@
         </div>
 
         <div class="note">
-          ✅ 科技交警救援：<br/>
-          - 偵測某入口車隊「回堵到靠近畫面邊界」→ 立刻插入該方向綠燈（可跳過其他相位）<br/>
-          - 尖峰時提高該方向 max green（但仍有上限，避免獨占）<br/>
-          - 回堵解除後回到正常 pressure 控制
+          ✅ 科技交警救援：回堵接近畫面邊界就插入救援相位、延長 max green 清隊，避免「整個路口鎖死」。<br/>
+          ✅ M1T 後半段可重疊放 M2 右轉：但若衝突區有轉下車占用，就暫停重疊（安全保護）。
         </div>
       </div>
 
@@ -313,20 +319,18 @@
     tAR: $('tAR'),
     spawn: $('spawn'),
 
+    // 車流百分比（四項）
+    pct_M1R_L: $('pct_M1R_L'),
+    pct_M1L_S: $('pct_M1L_S'),
+    pct_M2_R:  $('pct_M2_R'),
+    pct_M2_L:  $('pct_M2_L'),
+    pctHint:   $('pctHint'),
+
     pLeftOn: $('pLeftOn'), pRightOn: $('pRightOn'), pBottomOn: $('pBottomOn'),
     pLeftWalk: $('pLeftWalk'), pLeftClr: $('pLeftClr'),
     pRightWalk: $('pRightWalk'), pRightClr: $('pRightClr'),
     pBottomWalk: $('pBottomWalk'), pBottomClr: $('pBottomClr'),
     rightPedCard: $('rightPedCard'),
-
-    autoMode: $('autoMode'),
-    autoHint: $('autoHint'),
-    qText: $('qText'),
-    copText: $('copText'),
-
-    btnMorning: $('btnMorning'),
-    btnEvening: $('btnEvening'),
-    manualHint: $('manualHint'),
 
     btnRightXwalkOn: $('btnRightXwalkOn'),
     btnRightXwalkOff: $('btnRightXwalkOff'),
@@ -340,6 +344,8 @@
     sigM2R: $('sigM2R'),
     sigPed: $('sigPed'),
     count: $('count'),
+    qText: $('qText'),
+    copText: $('copText'),
   };
 
   const SIG = { RED:'RED', YELLOW:'YELLOW', GREEN:'GREEN' };
@@ -392,7 +398,7 @@
       m1_east_y: road.y + 22,
       m1_west_y: road.y - 22,
       stem_out_x: [road.x - 48, road.x - 20],
-      stem_in_x:  [road.x + 20, road.x + 48], // 0=左車道, 1=右車道
+      stem_in_x:  [road.x + 20, road.x + 48], // 0=畫面左車道, 1=畫面右車道
     };
 
     const stop = {
@@ -414,11 +420,16 @@
   let rightXwalkEnabled = true;
   function setRightXwalk(enabled){
     rightXwalkEnabled = !!enabled;
+
     ui.pRightOn.checked = rightXwalkEnabled;
+
     ui.btnRightXwalkOn?.classList.toggle('active', rightXwalkEnabled);
     ui.btnRightXwalkOff?.classList.toggle('active', !rightXwalkEnabled);
+
     ui.rightPedCard?.classList.toggle('disabled', !rightXwalkEnabled);
+
     softApply();
+
     ui.xwalkHint.textContent = rightXwalkEnabled
       ? '右斑馬線：目前「有」— 行人序列：左→右→下'
       : '右斑馬線：目前「無」— 行人序列：左→下（跳過右）';
@@ -444,7 +455,26 @@
     return steps;
   }
 
-  // ===== 控制器（科技交警參數都在這） =====
+  // ===== 車流百分比（四項 + 自動補剩餘）=====
+  function readFlowPcts(){
+    const p1 = Number(ui.pct_M1R_L.value)||0; // 右邊主1左轉(往下)
+    const p2 = Number(ui.pct_M1L_S.value)||0; // 左邊主1直行
+    const p3 = Number(ui.pct_M2_R.value)||0;  // 主2右車道右轉（畫面右邊車道）
+    const p4 = Number(ui.pct_M2_L.value)||0;  // 主2左車道左轉（畫面左邊車道）
+
+    const sum4 = p1+p2+p3+p4;
+    const rest = 100 - sum4; // 自動補到 主1右來直行
+
+    if (ui.pctHint){
+      ui.pctHint.textContent =
+        sum4 > 100
+          ? `⚠️ 四項總和 ${sum4}%（超過100，請調小）`
+          : `四項總和 ${sum4}%｜剩餘 ${rest}% → 自動補到「主1右來直行」`;
+    }
+    return { p1,p2,p3,p4,sum4,rest };
+  }
+
+  // ===== 控制器（科技交警參數） =====
   const CTRL = {
     EXTEND_IF_Q_GE: 2,
     EXTEND_STEP: 1,
@@ -463,31 +493,27 @@
     PED_MAX_DELAY: 120,
     PED_SUPPRESS_IF_PRESSURE_GE: 16,
 
-    // ✅ B版：M1T 後半段重疊放 M2R（保護）
+    // M1T 後半段重疊放 M2R
     OVERLAP_M2R_WITH_M1T: true,
     OVERLAP_M2R_MIN_Q: 2,
-    OVERLAP_M1T_START_RATIO: 0.55, // 想更早救 → 0.40
+    OVERLAP_M1T_START_RATIO: 0.55,
     OVERLAP_CONFLICT_PAD: 18,
 
-    // ✅✅ 科技交警：Spillback 回堵救援（核心）
+    // 科技交警：Spillback
     COP_ENABLED: true,
-
-    // 回堵判定（越小越敏感）
-    SPILLBACK_MARGIN_PX: 120,   // 車隊最尾端距離畫面邊界 < 120px 就算回堵
-
-    // 救援策略
-    COP_FORCE_INSERT: true,     // 直接插入救援相位（跳過一般挑選）
-    COP_MIN_GREEN: 14,          // 救援相位最少放行秒數
-    COP_MAX_GREEN_BOOST: 25,    // 尖峰加長 max green（在原本 max 上再加）
-    COP_COOLDOWN_SEC: 8,        // 救援剛做完，至少冷卻幾秒再救下一次（避免抖動）
+    SPILLBACK_MARGIN_PX: 120,
+    COP_FORCE_INSERT: true,
+    COP_MIN_GREEN: 14,
+    COP_MAX_GREEN_BOOST: 25,
+    COP_COOLDOWN_SEC: 8,
   };
 
   // ===== 相位 =====
   const PH = {
     M1S_G:'M1S_G',
     M1T_G:'M1T_G',
-    M2L_G:'M2L_G',
-    M2R_G:'M2R_G',
+    M2L_G:'M2L_G', // 主2左轉
+    M2R_G:'M2R_G', // 主2右轉
     PSEQ:'PSEQ',
 
     M1_Y:'M1_Y',
@@ -504,13 +530,12 @@
   const lastServedAt = { M1S:0, M1T:0, M2L:0, M2R:0, PED:0 };
   let simSec = 0;
 
-  // 科技交警狀態
   let cop = {
     active: false,
-    targetKey: null,     // 'M1S'|'M1T'|'M2L'|'M2R'
+    targetKey: null,
     cooldownUntil: 0,
     reason: '',
-    boostedMax: null,    // 動態 max green（只在救援期間使用）
+    boostedMax: null,
   };
 
   function activePedStep(){
@@ -557,7 +582,7 @@
     return true;
   }
 
-  // ===== 衝突區（重疊保護用） =====
+  // ===== 衝突區（重疊保護） =====
   function rectOverlap(ax,ay,aw,ah, bx,by,bw,bh){
     return !(ax+aw < bx || bx+bw < ax || ay+ah < by || by+bh < ay);
   }
@@ -579,10 +604,7 @@
 
       const bx = c.x - c.w/2;
       const by = c.y - c.h/2;
-      const bw = c.w;
-      const bh = c.h;
-
-      if (rectOverlap(z.x,z.y,z.w,z.h, bx,by,bw,bh)) return true;
+      if (rectOverlap(z.x,z.y,z.w,z.h, bx,by,c.w,c.h)) return true;
     }
     return false;
   }
@@ -619,41 +641,29 @@
     return { m1TurnQ, m1StraightQ, m2Q, m2LQ, m2RQ };
   }
 
-  // =====✅ 科技交警：Spillback 偵測 =====
-  // 觀察每個入口「最尾端」車輛離畫面邊界是否太近
+  // ===== 科技交警：Spillback 偵測 =====
   function spillbackStatus(g){
     const margin = CTRL.SPILLBACK_MARGIN_PX;
 
-    // 找各入口最尾端（離停止線最遠、靠近入口邊界的那台）
-    let tail_M1L = null; // 從左來（x 小）
-    let tail_M1R = null; // 從右來（x 大）
-    let tail_M2  = [null, null]; // lane0 / lane1
+    let tail_M1L = null;
+    let tail_M1R = null;
+    let tail_M2  = [null, null]; // laneIdx 0/1
 
     for (const c of cars){
       if (pastStop(c, g)) continue;
 
       if (c.kind === 'M1L'){
-        // 越小 x 越靠近入口邊界（左邊）
         if (!tail_M1L || c.x < tail_M1L.x) tail_M1L = c;
       } else if (c.kind === 'M1R'){
-        // 越大 x 越靠近入口邊界（右邊）
         if (!tail_M1R || c.x > tail_M1R.x) tail_M1R = c;
       } else if (c.kind === 'M2'){
-        // 越大 y 越靠近入口邊界（下邊）
         const i = c.laneIdx ?? 0;
         if (!tail_M2[i] || c.y > tail_M2[i].y) tail_M2[i] = c;
       }
     }
 
-    const status = {
-      M1L_spill: false,
-      M1R_spill: false,
-      M2_0_spill: false,
-      M2_1_spill: false,
-      worst: null,   // {key, severityPx, reason}
-    };
+    const status = { worst:null };
 
-    // severity：越接近邊界越嚴重（用剩餘距離 px）
     const consider = (key, distToEdgePx, reason) => {
       if (distToEdgePx >= margin) return;
       const severity = distToEdgePx; // 越小越嚴重
@@ -662,117 +672,108 @@
       }
     };
 
-    if (tail_M1L){
-      const dist = tail_M1L.x; // 距離左邊界
-      status.M1L_spill = dist < margin;
-      consider('M1S', dist, '主1左入口回堵（直行/右轉）');
-      // 也可能是 M1T 需求（若尾車多為 down-turn，簡化用隊列判定時再分）
-    }
-    if (tail_M1R){
-      const dist = (g.W - tail_M1R.x); // 距離右邊界
-      status.M1R_spill = dist < margin;
-      consider('M1T', dist, '主1右入口回堵（含左轉往下）');
-      // 右入口通常你尖峰是左轉 down-turn，直接鎖到 M1T 更合理
-    }
-    if (tail_M2[0]){
-      const dist = (g.H - tail_M2[0].y); // 距離下邊界
-      status.M2_0_spill = dist < margin;
-      consider('M2R', dist, '主2左車道回堵（右轉）');
-    }
-    if (tail_M2[1]){
-      const dist = (g.H - tail_M2[1].y); // 距離下邊界
-      status.M2_1_spill = dist < margin;
-      consider('M2L', dist, '主2右車道回堵（左轉）');
-    }
+    if (tail_M1L) consider('M1S', tail_M1L.x, '主1左入口回堵（直行）');
+    if (tail_M1R) consider('M1T', (g.W - tail_M1R.x), '主1右入口回堵（左轉往下/直行）');
+
+    // ✅ 注意：laneIdx:0=畫面左，laneIdx:1=畫面右
+    if (tail_M2[0]) consider('M2L', (g.H - tail_M2[0].y), '主2左車道回堵（左轉）');
+    if (tail_M2[1]) consider('M2R', (g.H - tail_M2[1].y), '主2右車道回堵（右轉）');
 
     return status;
   }
 
-  // ===== Auto 模式（只影響生成比例/基礎秒數） =====
-  const MODES = {
-    AM:  { name:'早上',  M1_SG: 22, M1_TG: 40, M2_G: 34, spawn: 0.22 },
-    MID: { name:'平峰',  M1_SG: 26, M1_TG: 28, M2_G: 38, spawn: 0.20 },
-    PM2: { name:'晚上',  M1_SG: 20, M1_TG: 28, M2_G: 55, spawn: 0.22 },
-  };
-  let currentAutoMode = 'MID';
+  function copDecide(g, q){
+    if (!CTRL.COP_ENABLED) return null;
+    if (simSec < cop.cooldownUntil) return null;
 
-  function applyMode(modeKey){
-    const m = MODES[modeKey];
-    if (!m) return;
-    ui.tM1SG.value = m.M1_SG;
-    ui.tM1TG.value = m.M1_TG;
-    ui.tM2G.value  = m.M2_G;
-    ui.spawn.value = m.spawn;
+    const sp = spillbackStatus(g);
+    if (!sp.worst) return null;
 
-    ui.pLeftOn.checked = true;
-    ui.pLeftWalk.value = 10;
-    ui.pLeftClr.value  = 6;
-    ui.pBottomOn.checked = true;
-    ui.pBottomWalk.value = 20;
-    ui.pBottomClr.value  = 8;
-    ui.pRightWalk.value = 10;
-    ui.pRightClr.value = 6;
+    const key = sp.worst.key;
+    const demand =
+      key === 'M1S' ? q.m1StraightQ :
+      key === 'M1T' ? q.m1TurnQ :
+      key === 'M2L' ? q.m2LQ :
+      key === 'M2R' ? q.m2RQ : 0;
 
-    currentAutoMode = modeKey;
-    ui.autoHint.textContent = `Auto：目前模式 ${modeKey}｜${m.name}`;
-    softApply();
+    if (demand <= 0) return null;
+
+    return { key, reason: sp.worst.reason, severityPx: sp.worst.severityPx };
   }
 
-  // ===== 生成車：你要求「主2右車道要左轉」已固定 =====
-  function spawnCar(g){
-    const p = Number(ui.spawn.value);
-    if (Math.random() > p) return;
+  // ===== 壓力控制挑相位 =====
+  function pressureScore(key, q){
+    let base =
+      key === 'M1S' ? q.m1StraightQ :
+      key === 'M1T' ? q.m1TurnQ :
+      key === 'M2L' ? q.m2LQ :
+      key === 'M2R' ? q.m2RQ : 0;
 
-    const sp = rnd(95, 145);
+    const last = lastServedAt[key] || 0;
+    const wait = Math.max(0, simSec - last);
+    if (wait >= CTRL.STARVE_SEC) base += CTRL.STARVE_BONUS;
 
-    let base = { m1rLeft: 0.35, m2Heavy: 0.35, others: 0.30 };
-    if (currentAutoMode === 'AM')  base = { m1rLeft: 0.40, m2Heavy: 0.30, others: 0.30 };
-    if (currentAutoMode === 'PM2') base = { m1rLeft: 0.30, m2Heavy: 0.40, others: 0.30 };
+    return base;
+  }
 
-    const r = Math.random();
+  function pickNextGreen(q){
+    const cands = ['M1S','M1T','M2L','M2R'];
+    const anyDemand = (q.m1StraightQ + q.m1TurnQ + q.m2LQ + q.m2RQ) > 0;
+    if (!anyDemand) return 'M1S';
 
-    if (r < base.m1rLeft){
-      cars.push({ kind:'M1R', route:'down', x:g.W+80, y:g.lane.m1_west_y, vx:-sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
-      return;
+    let best = cands[0];
+    let bestScore = -1e9;
+    for (const k of cands){
+      const s = pressureScore(k, q);
+      if (s > bestScore){
+        bestScore = s;
+        best = k;
+      }
+    }
+    return best;
+  }
+
+  function greenFromKey(k){
+    if (k === 'M1S') return PH.M1S_G;
+    if (k === 'M1T') return PH.M1T_G;
+    if (k === 'M2L') return PH.M2L_G;
+    if (k === 'M2R') return PH.M2R_G;
+    return PH.M1S_G;
+  }
+
+  function minMaxForGreen(ph){
+    const base = (()=>{
+      switch(ph){
+        case PH.M1S_G: return [CTRL.M1S_MIN, CTRL.M1S_MAX];
+        case PH.M1T_G: return [CTRL.M1T_MIN, CTRL.M1T_MAX];
+        case PH.M2L_G: return [CTRL.M2L_MIN, CTRL.M2L_MAX];
+        case PH.M2R_G: return [CTRL.M2R_MIN, CTRL.M2R_MAX];
+        default: return [10, 40];
+      }
+    })();
+
+    if (cop.active && cop.boostedMax && (
+      (ph === PH.M1S_G && cop.targetKey === 'M1S') ||
+      (ph === PH.M1T_G && cop.targetKey === 'M1T') ||
+      (ph === PH.M2L_G && cop.targetKey === 'M2L') ||
+      (ph === PH.M2R_G && cop.targetKey === 'M2R')
+    )){
+      return [Math.max(base[0], CTRL.COP_MIN_GREEN), cop.boostedMax];
     }
 
-    if (r < base.m1rLeft + base.m2Heavy){
-      // ✅ 主2右車道左轉（laneIdx:1, toLeft）
-      cars.push({
-        kind:'M2',
-        laneIdx: 1,
-        route: 'toLeft',
-        x: g.lane.stem_in_x[1],
-        y: g.H + 90,
-        vx: 0, vy: -sp,
-        w: CAR_H, h: CAR_W,
-        turned: false,
-      });
-      return;
-    }
+    return base;
+  }
 
-    const rr = Math.random();
-    if (rr < 0.50){
-      cars.push({ kind:'M1R', route:'straight', x:g.W+80, y:g.lane.m1_west_y, vx:-sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
-    } else if (rr < 0.85){
-      // ✅ 主2左車道右轉（laneIdx:0, toRight）
-      cars.push({
-        kind:'M2',
-        laneIdx: 0,
-        route: 'toRight',
-        x: g.lane.stem_in_x[0],
-        y: g.H + 90,
-        vx: 0, vy: -sp,
-        w: CAR_H, h: CAR_W,
-        turned: false,
-      });
-    } else {
-      const turnDown = (Math.random() < 0.20);
-      cars.push({ kind:'M1L', route: turnDown ? 'down' : 'straight', x:-80, y:g.lane.m1_east_y, vx:sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
+  function demandForGreen(ph, q){
+    switch(ph){
+      case PH.M1S_G: return q.m1StraightQ;
+      case PH.M1T_G: return q.m1TurnQ;
+      case PH.M2L_G: return q.m2LQ;
+      case PH.M2R_G: return q.m2RQ;
+      default: return 0;
     }
   }
 
-  // ===== B版重疊：判斷是否允許 M1T 後半段同放 M2R =====
   function canOverlapM2RWithM1T(g, q){
     if (!CTRL.OVERLAP_M2R_WITH_M1T) return false;
     if (phase !== PH.M1T_G) return false;
@@ -787,7 +788,7 @@
     return true;
   }
 
-  // ===== signals =====
+  // ===== 信號燈 =====
   function signals(){
     const all = {
       m1: SIG.RED,
@@ -815,16 +816,12 @@
       } else if (step.key.startsWith('BOTTOM_')){
         s.pedBottom = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'STOP');
         s.pedWhich = 'BOTTOM';
-      } else {
-        s.pedWhich = 'NONE';
       }
       s.pedMode = isWalk ? 'WALK' : (isClear ? 'CLEAR' : 'NONE');
       return s;
     }
 
-    if (phase === PH.M1S_G){
-      return { ...all, m1: SIG.GREEN };
-    }
+    if (phase === PH.M1S_G) return { ...all, m1: SIG.GREEN };
 
     if (phase === PH.M1T_G){
       const g = geom();
@@ -844,7 +841,6 @@
     return all;
   }
 
-  // ===== allowedBySignal =====
   function allowedBySignal(car, sig, g){
     if (phase === PH.PSEQ) return pedAllowsCar(car, sig);
 
@@ -864,13 +860,64 @@
     }
 
     if (car.kind === 'M2'){
-      if (sig.m2L === SIG.GREEN) return car.route === 'toLeft' || pastStop(car, g);
-      if (sig.m2R === SIG.GREEN) return car.route === 'toRight' || pastStop(car, g);
+      if (sig.m2L === SIG.GREEN) return (car.route === 'toLeft')  || pastStop(car, g);
+      if (sig.m2R === SIG.GREEN) return (car.route === 'toRight') || pastStop(car, g);
       if (sig.m2L === SIG.YELLOW || sig.m2R === SIG.YELLOW) return pastStop(car, g);
       return false;
     }
 
     return false;
+  }
+
+  // ===== 生成車：依四項百分比（主2右車道=畫面右邊 laneIdx:1）=====
+  function spawnCar(g){
+    const p = Number(ui.spawn.value);
+    if (Math.random() > p) return;
+
+    const sp = rnd(95, 145);
+    const { p1,p2,p3,p4,sum4 } = readFlowPcts();
+    if (sum4 > 100) return;
+
+    const A = p1 / 100;
+    const B = (p1 + p2) / 100;
+    const C = (p1 + p2 + p3) / 100;
+    const D = (p1 + p2 + p3 + p4) / 100;
+    const r = Math.random();
+
+    // A：右邊主1左轉(往下)
+    if (r < A){
+      cars.push({ kind:'M1R', route:'down', x:g.W+80, y:g.lane.m1_west_y, vx:-sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
+      return;
+    }
+
+    // B：左邊主1直行
+    if (r < B){
+      cars.push({ kind:'M1L', route:'straight', x:-80, y:g.lane.m1_east_y, vx:sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
+      return;
+    }
+
+    // C：主2右車道右轉（畫面右邊 laneIdx:1）
+    if (r < C){
+      cars.push({
+        kind:'M2', laneIdx:1, route:'toRight',
+        x:g.lane.stem_in_x[1], y:g.H+90,
+        vx:0, vy:-sp, w:CAR_H, h:CAR_W, turned:false
+      });
+      return;
+    }
+
+    // D：主2左車道左轉（畫面左邊 laneIdx:0）
+    if (r < D){
+      cars.push({
+        kind:'M2', laneIdx:0, route:'toLeft',
+        x:g.lane.stem_in_x[0], y:g.H+90,
+        vx:0, vy:-sp, w:CAR_H, h:CAR_W, turned:false
+      });
+      return;
+    }
+
+    // E：剩下全部 → 主1右來直行（自動補）
+    cars.push({ kind:'M1R', route:'straight', x:g.W+80, y:g.lane.m1_west_y, vx:-sp, vy:0, w:CAR_W, h:CAR_H, turned:false });
   }
 
   // ===== 排隊跟車 =====
@@ -972,7 +1019,159 @@
     }
   }
 
-  // ===== 繪圖 =====
+  // ===== 進入相位 =====
+  function enterPhase(newPhase){
+    phase = newPhase;
+    phaseElapsed = 0;
+
+    const d = getDur();
+
+    if (phase === PH.PSEQ){
+      pedSteps = buildPedSteps();
+      pedIndex = 0;
+      remaining = pedSteps[pedIndex]?.dur ?? 2;
+      lastServedAt.PED = simSec;
+      return;
+    }
+
+    if (phase === PH.M1_Y)  { remaining = d.M1Y; return; }
+    if (phase === PH.M2L_Y) { remaining = d.M2Y; return; }
+    if (phase === PH.M2R_Y) { remaining = d.M2Y; return; }
+    if (phase === PH.AR)    { remaining = d.AR;  return; }
+
+    if (phase === PH.M1S_G) remaining = d.M1SG;
+    if (phase === PH.M1T_G) remaining = d.M1TG;
+    if (phase === PH.M2L_G) remaining = d.M2G;
+    if (phase === PH.M2R_G) remaining = d.M2G;
+
+    const g = geom();
+    const q = measureQueues(g);
+    const dem = demandForGreen(phase, q);
+    if (dem <= CTRL.SKIP_IF_Q_LE) remaining = 1;
+
+    if (phase === PH.M1S_G) lastServedAt.M1S = simSec;
+    if (phase === PH.M1T_G) lastServedAt.M1T = simSec;
+    if (phase === PH.M2L_G) lastServedAt.M2L = simSec;
+    if (phase === PH.M2R_G) lastServedAt.M2R = simSec;
+  }
+
+  function nextAfterGreen(ph){
+    if (ph === PH.M1S_G || ph === PH.M1T_G) return PH.M1_Y;
+    if (ph === PH.M2L_G) return PH.M2L_Y;
+    if (ph === PH.M2R_G) return PH.M2R_Y;
+    return PH.AR;
+  }
+
+  let pedDue = 0;
+
+  function tick1s(){
+    simSec += 1;
+    phaseElapsed += 1;
+    remaining -= 1;
+
+    if (remaining > 0) return;
+
+    const g = geom();
+    const q = measureQueues(g);
+
+    // 綠燈延長（含科技交警動態 max）
+    if (phase === PH.M1S_G || phase === PH.M1T_G || phase === PH.M2L_G || phase === PH.M2R_G){
+      const [minG, maxG] = minMaxForGreen(phase);
+      const dem = demandForGreen(phase, q);
+
+      if (phaseElapsed < minG){
+        remaining = 1;
+        return;
+      }
+
+      if (dem >= CTRL.EXTEND_IF_Q_GE && phaseElapsed < maxG){
+        remaining = CTRL.EXTEND_STEP;
+        return;
+      }
+
+      // 救援相位結束：回復 + 冷卻
+      if (cop.active){
+        const ended =
+          (phase === PH.M1S_G && cop.targetKey === 'M1S') ||
+          (phase === PH.M1T_G && cop.targetKey === 'M1T') ||
+          (phase === PH.M2L_G && cop.targetKey === 'M2L') ||
+          (phase === PH.M2R_G && cop.targetKey === 'M2R');
+        if (ended){
+          cop.active = false;
+          cop.targetKey = null;
+          cop.boostedMax = null;
+          cop.reason = '';
+          cop.cooldownUntil = simSec + CTRL.COP_COOLDOWN_SEC;
+        }
+      }
+
+      enterPhase(nextAfterGreen(phase));
+      return;
+    }
+
+    // 行人相位
+    if (phase === PH.PSEQ){
+      pedIndex += 1;
+      if (pedIndex < pedSteps.length){
+        remaining = pedSteps[pedIndex].dur;
+        return;
+      }
+      enterPhase(PH.AR);
+      return;
+    }
+
+    // 黃燈 → 全紅
+    if (phase === PH.M1_Y || phase === PH.M2L_Y || phase === PH.M2R_Y){
+      enterPhase(PH.AR);
+      return;
+    }
+
+    // 全紅：決定下一個相位
+    if (phase === PH.AR){
+      // 行人固定輪到
+      if (CTRL.PED_ALWAYS){
+        if (simSec >= pedDue){
+          pedDue = simSec + 1;
+          enterPhase(PH.PSEQ);
+          return;
+        }
+      } else {
+        const pressure = q.m1StraightQ + q.m1TurnQ + q.m2LQ + q.m2RQ;
+        const allowSuppress = pressure >= CTRL.PED_SUPPRESS_IF_PRESSURE_GE;
+        const maxDelayReached = (simSec - lastServedAt.PED) >= CTRL.PED_MAX_DELAY;
+        if (!allowSuppress || maxDelayReached){
+          enterPhase(PH.PSEQ);
+          return;
+        }
+      }
+
+      // 科技交警插入救援
+      const decision = copDecide(g, q);
+      if (decision && CTRL.COP_FORCE_INSERT){
+        cop.active = true;
+        cop.targetKey = decision.key;
+        cop.reason = decision.reason;
+
+        const baseMax =
+          decision.key === 'M1S' ? CTRL.M1S_MAX :
+          decision.key === 'M1T' ? CTRL.M1T_MAX :
+          decision.key === 'M2L' ? CTRL.M2L_MAX :
+          CTRL.M2R_MAX;
+
+        cop.boostedMax = baseMax + CTRL.COP_MAX_GREEN_BOOST;
+
+        enterPhase(greenFromKey(decision.key));
+        return;
+      }
+
+      // 一般壓力挑選
+      const nextKey = pickNextGreen(q);
+      enterPhase(greenFromKey(nextKey));
+      return;
+    }
+  }
+
+  // ===== 畫路口 =====
   function roundRect(x,y,w,h,r){
     ctx.beginPath();
     ctx.moveTo(x+r, y);
@@ -1036,6 +1235,12 @@
     ctx.beginPath(); ctx.moveTo(g.stop.m1_left,  g.road.y+g.road.h/2-6); ctx.lineTo(g.stop.m1_left,  g.road.y+6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(g.stop.m1_right, g.road.y-g.road.h/2+6); ctx.lineTo(g.stop.m1_right, g.road.y-6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(g.road.x+6, g.stop.m2_in); ctx.lineTo(g.road.x+g.road.w/2-6, g.stop.m2_in); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(232,238,252,0.78)';
+    ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillText('主線1（左來）直行', 14, g.road.y + 60);
+    ctx.fillText('主線1（右來）直行/左轉往下（半重疊）', g.W-420, g.road.y - 52);
+    ctx.fillText('主線2（下方）左車道左轉｜右車道右轉', g.road.x - 170, g.H-18);
   }
 
   function lamp(onCol, on){ return on ? onCol : 'rgba(255,255,255,0.12)'; }
@@ -1139,268 +1344,12 @@
     }
   }
 
-  // ===== Phase picking（壓力控制） =====
-  function pressureScore(key, q){
-    let base =
-      key === 'M1S' ? q.m1StraightQ :
-      key === 'M1T' ? q.m1TurnQ :
-      key === 'M2L' ? q.m2LQ :
-      key === 'M2R' ? q.m2RQ :
-      0;
-
-    const last = lastServedAt[key] || 0;
-    const wait = Math.max(0, simSec - last);
-    if (wait >= CTRL.STARVE_SEC) base += CTRL.STARVE_BONUS;
-
-    return base;
-  }
-
-  function pickNextGreen(q){
-    const cands = ['M1S','M1T','M2L','M2R'];
-    const anyDemand = (q.m1StraightQ + q.m1TurnQ + q.m2LQ + q.m2RQ) > 0;
-    if (!anyDemand) return 'M1S';
-
-    let best = cands[0];
-    let bestScore = -1e9;
-    for (const k of cands){
-      const s = pressureScore(k, q);
-      if (s > bestScore){
-        bestScore = s;
-        best = k;
-      }
-    }
-    return best;
-  }
-
-  function greenFromKey(k){
-    if (k === 'M1S') return PH.M1S_G;
-    if (k === 'M1T') return PH.M1T_G;
-    if (k === 'M2L') return PH.M2L_G;
-    if (k === 'M2R') return PH.M2R_G;
-    return PH.M1S_G;
-  }
-
-  // ===== 科技交警：決定是否要「插入救援相位」 =====
-  function copDecide(g, q){
-    if (!CTRL.COP_ENABLED) return null;
-    if (simSec < cop.cooldownUntil) return null;
-
-    const sp = spillbackStatus(g);
-    if (!sp.worst) return null;
-
-    // 若該方向需求其實不大（例如回堵但沒車？），避免誤判：用隊列 q 再確認一次
-    const key = sp.worst.key;
-    const demand =
-      key === 'M1S' ? q.m1StraightQ :
-      key === 'M1T' ? q.m1TurnQ :
-      key === 'M2L' ? q.m2LQ :
-      key === 'M2R' ? q.m2RQ : 0;
-
-    if (demand <= 0) return null;
-
-    return { key, reason: sp.worst.reason, severityPx: sp.worst.severityPx };
-  }
-
-  // ===== 相位 min/max（含科技交警動態 max green） =====
-  function minMaxForGreen(ph){
-    const base = (()=>{
-      switch(ph){
-        case PH.M1S_G: return [CTRL.M1S_MIN, CTRL.M1S_MAX];
-        case PH.M1T_G: return [CTRL.M1T_MIN, CTRL.M1T_MAX];
-        case PH.M2L_G: return [CTRL.M2L_MIN, CTRL.M2L_MAX];
-        case PH.M2R_G: return [CTRL.M2R_MIN, CTRL.M2R_MAX];
-        default: return [10, 40];
-      }
-    })();
-
-    // ✅ 若科技交警正救援這個方向，提升 max green
-    if (cop.active && cop.boostedMax && (
-      (ph === PH.M1S_G && cop.targetKey === 'M1S') ||
-      (ph === PH.M1T_G && cop.targetKey === 'M1T') ||
-      (ph === PH.M2L_G && cop.targetKey === 'M2L') ||
-      (ph === PH.M2R_G && cop.targetKey === 'M2R')
-    )){
-      return [Math.max(base[0], CTRL.COP_MIN_GREEN), cop.boostedMax];
-    }
-
-    return base;
-  }
-
-  function demandForGreen(ph, q){
-    switch(ph){
-      case PH.M1S_G: return q.m1StraightQ;
-      case PH.M1T_G: return q.m1TurnQ;
-      case PH.M2L_G: return q.m2LQ;
-      case PH.M2R_G: return q.m2RQ;
-      default: return 0;
-    }
-  }
-
-  // ===== 進入相位 =====
-  function enterPhase(newPhase){
-    phase = newPhase;
-    phaseElapsed = 0;
-
-    const d = getDur();
-
-    if (phase === PH.PSEQ){
-      pedSteps = buildPedSteps();
-      pedIndex = 0;
-      remaining = pedSteps[pedIndex]?.dur ?? 2;
-      lastServedAt.PED = simSec;
-      return;
-    }
-
-    if (phase === PH.M1_Y)  { remaining = d.M1Y; return; }
-    if (phase === PH.M2L_Y) { remaining = d.M2Y; return; }
-    if (phase === PH.M2R_Y) { remaining = d.M2Y; return; }
-    if (phase === PH.AR)    { remaining = d.AR;  return; }
-
-    if (phase === PH.M1S_G) remaining = d.M1SG;
-    if (phase === PH.M1T_G) remaining = d.M1TG;
-    if (phase === PH.M2L_G) remaining = d.M2G;
-    if (phase === PH.M2R_G) remaining = d.M2G;
-
-    // 空需求：縮短
-    const g = geom();
-    const q = measureQueues(g);
-    const dem = demandForGreen(phase, q);
-    if (dem <= CTRL.SKIP_IF_Q_LE) remaining = 1;
-
-    if (phase === PH.M1S_G) lastServedAt.M1S = simSec;
-    if (phase === PH.M1T_G) lastServedAt.M1T = simSec;
-    if (phase === PH.M2L_G) lastServedAt.M2L = simSec;
-    if (phase === PH.M2R_G) lastServedAt.M2R = simSec;
-  }
-
-  // ===== timing =====
-  let pedDue = 0;
-
-  function nextAfterGreen(ph){
-    if (ph === PH.M1S_G || ph === PH.M1T_G) return PH.M1_Y;
-    if (ph === PH.M2L_G) return PH.M2L_Y;
-    if (ph === PH.M2R_G) return PH.M2R_Y;
-    return PH.AR;
-  }
-
-  function tick1s(){
-    simSec += 1;
-    phaseElapsed += 1;
-    remaining -= 1;
-
-    if (remaining > 0) return;
-
-    const g = geom();
-    const q = measureQueues(g);
-
-    // ===== 綠燈延長（含科技交警動態 max） =====
-    if (phase === PH.M1S_G || phase === PH.M1T_G || phase === PH.M2L_G || phase === PH.M2R_G){
-      const [minG, maxG] = minMaxForGreen(phase);
-      const dem = demandForGreen(phase, q);
-
-      if (phaseElapsed < minG){
-        remaining = 1;
-        return;
-      }
-
-      if (dem >= CTRL.EXTEND_IF_Q_GE && phaseElapsed < maxG){
-        remaining = CTRL.EXTEND_STEP;
-        return;
-      }
-
-      // 若剛好在救援相位結束：結束救援，進冷卻
-      if (cop.active){
-        const ended =
-          (phase === PH.M1S_G && cop.targetKey === 'M1S') ||
-          (phase === PH.M1T_G && cop.targetKey === 'M1T') ||
-          (phase === PH.M2L_G && cop.targetKey === 'M2L') ||
-          (phase === PH.M2R_G && cop.targetKey === 'M2R');
-        if (ended){
-          cop.active = false;
-          cop.targetKey = null;
-          cop.boostedMax = null;
-          cop.reason = '';
-          cop.cooldownUntil = simSec + CTRL.COP_COOLDOWN_SEC;
-        }
-      }
-
-      enterPhase(nextAfterGreen(phase));
-      return;
-    }
-
-    // ===== 行人相位 =====
-    if (phase === PH.PSEQ){
-      pedIndex += 1;
-      if (pedIndex < pedSteps.length){
-        remaining = pedSteps[pedIndex].dur;
-        return;
-      }
-      enterPhase(PH.AR);
-      return;
-    }
-
-    // ===== 黃燈 → 全紅 =====
-    if (phase === PH.M1_Y || phase === PH.M2L_Y || phase === PH.M2R_Y){
-      enterPhase(PH.AR);
-      return;
-    }
-
-    // ===== 全紅：決定下一個相位（科技交警可插入） =====
-    if (phase === PH.AR){
-      // 行人固定輪到
-      if (CTRL.PED_ALWAYS){
-        if (simSec >= pedDue){
-          pedDue = simSec + 1;
-          enterPhase(PH.PSEQ);
-          return;
-        }
-      } else {
-        const pressure = q.m1StraightQ + q.m1TurnQ + q.m2LQ + q.m2RQ;
-        const allowSuppress = pressure >= CTRL.PED_SUPPRESS_IF_PRESSURE_GE;
-        const maxDelayReached = (simSec - lastServedAt.PED) >= CTRL.PED_MAX_DELAY;
-        if (!allowSuppress || maxDelayReached){
-          enterPhase(PH.PSEQ);
-          return;
-        }
-      }
-
-      // ✅✅ 科技交警插入救援
-      const decision = copDecide(g, q);
-      if (decision && CTRL.COP_FORCE_INSERT){
-        cop.active = true;
-        cop.targetKey = decision.key;
-        cop.reason = decision.reason;
-
-        // 動態提高 max green
-        const baseMax =
-          decision.key === 'M1S' ? CTRL.M1S_MAX :
-          decision.key === 'M1T' ? CTRL.M1T_MAX :
-          decision.key === 'M2L' ? CTRL.M2L_MAX :
-          CTRL.M2R_MAX;
-
-        cop.boostedMax = baseMax + CTRL.COP_MAX_GREEN_BOOST;
-
-        // 直接進救援相位
-        enterPhase(greenFromKey(decision.key));
-
-        // 並確保至少放 COP_MIN_GREEN（用 phaseElapsed/minMaxForGreen 達成，這裡不用硬改 remaining）
-        return;
-      }
-
-      // 一般壓力挑選
-      const nextKey = pickNextGreen(q);
-      enterPhase(greenFromKey(nextKey));
-      return;
-    }
-  }
-
-  // ===== UI =====
   function phaseLabel(sig){
     if (phase === PH.PSEQ) return [`行人：${sig.pedWhich} ${sig.pedMode}`, sig.pedMode==='WALK' ? 'green' : 'yellow'];
     if (phase === PH.M1S_G) return ['主線1 直行綠','green'];
-    if (phase === PH.M1T_G) return ['主線1 半重疊綠（後半段可重疊M2右轉）','green'];
-    if (phase === PH.M2L_G) return ['主線2 左轉綠（右車道左轉）','green'];
-    if (phase === PH.M2R_G) return ['主線2 右轉綠（左車道右轉）','green'];
+    if (phase === PH.M1T_G) return ['主線1 半重疊綠（後半段可重疊主2右轉）','green'];
+    if (phase === PH.M2L_G) return ['主線2 左轉綠（畫面左車道左轉）','green'];
+    if (phase === PH.M2R_G) return ['主線2 右轉綠（畫面右車道右轉）','green'];
     if (phase === PH.M1_Y)  return ['主線1 黃','yellow'];
     if (phase === PH.M2L_Y) return ['主線2 左轉黃','yellow'];
     if (phase === PH.M2R_Y) return ['主線2 右轉黃','yellow'];
@@ -1432,7 +1381,7 @@
     }
   }
 
-  // ===== controls / loop =====
+  // ===== Controls / Loop =====
   let running = true;
   let acc = 0;
   let last = performance.now();
@@ -1452,30 +1401,12 @@
     ui.tM1SG, ui.tM1TG, ui.tM1Y, ui.tM2G, ui.tM2Y, ui.tAR, ui.spawn,
     ui.pLeftOn, ui.pBottomOn,
     ui.pLeftWalk, ui.pLeftClr, ui.pRightWalk, ui.pRightClr, ui.pBottomWalk, ui.pBottomClr,
-    ui.autoMode
-  ]) el.addEventListener('change', softApply);
+    ui.pct_M1R_L, ui.pct_M1L_S, ui.pct_M2_R, ui.pct_M2_L
+  ]) el.addEventListener('change', () => { readFlowPcts(); softApply(); });
 
-  ui.autoMode?.addEventListener('change', () => {
-    const autoOn = !!ui.autoMode.checked;
-    ui.btnMorning.disabled = autoOn;
-    ui.btnEvening.disabled = autoOn;
-    ui.manualHint.textContent = autoOn
-      ? '手動：Auto 開啟中（早上/晚上按鈕已鎖定）'
-      : '手動：按下「早上/晚上」會直接套用（並自動關掉 Auto）。';
-  });
-
-  ui.btnMorning?.addEventListener('click', () => {
-    ui.autoMode.checked = false;
-    applyMode('AM');
-    ui.btnMorning.disabled = false;
-    ui.btnEvening.disabled = false;
-  });
-  ui.btnEvening?.addEventListener('click', () => {
-    ui.autoMode.checked = false;
-    applyMode('PM2');
-    ui.btnMorning.disabled = false;
-    ui.btnEvening.disabled = false;
-  });
+  for (const el of [ui.pct_M1R_L, ui.pct_M1L_S, ui.pct_M2_R, ui.pct_M2_L]){
+    el.addEventListener('input', readFlowPcts);
+  }
 
   ui.btnRightXwalkOn?.addEventListener('click', () => setRightXwalk(true));
   ui.btnRightXwalkOff?.addEventListener('click', () => setRightXwalk(false));
@@ -1524,18 +1455,19 @@
     requestAnimationFrame(step);
   }
 
+  // ===== start =====
   (function init(){
+    // 行人秒數固定（你原本的設定）
     ui.pLeftOn.checked = true;  ui.pLeftWalk.value = 10; ui.pLeftClr.value = 6;
     ui.pBottomOn.checked = true;ui.pBottomWalk.value = 20;ui.pBottomClr.value = 8;
     ui.pRightWalk.value = 10;   ui.pRightClr.value = 6;
 
-    applyMode('MID');
     setRightXwalk(true);
-
     pedSteps = buildPedSteps();
+
+    readFlowPcts();
     enterPhase(PH.M1S_G);
 
-    ui.autoMode.dispatchEvent(new Event('change'));
     requestAnimationFrame(step);
     window.addEventListener('resize', () => resizeCanvasToCSS());
   })();
