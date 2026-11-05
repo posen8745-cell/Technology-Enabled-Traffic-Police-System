@@ -1,5 +1,23 @@
-# Technology-Enabled Traffic Police System
+# T 字路口科技交警模擬系統
 
-A T-junction traffic simulation system with technology-enabled traffic policing,
-congestion detection, automated voice warnings, and visual alerts,
-designed to reduce the operational burden on traffic police.
+模擬 T 字路口的車流、紅綠燈與行人通行，透過科技交警介入示範，呈現交通疏導與號誌調整的運作方式。
+
+## 主要功能
+
+- **車流模擬**：調整車流生成率，觀察車輛行進與排隊情形。
+- **號誌控制**：模擬直行、轉彎、黃燈及全紅緩衝時段。
+- **行人通行**：顯示行人通行與倒數，支援右側斑馬線開關。
+- **時段模式**：提供早上、晚上及依排隊狀況自動選擇的模式。
+- **科技交警示範**：手動啟動介入，於適當時段將主線直行綠燈延長 15 秒。
+- **語音與狀態提示**：以提示音、語音及文字呈現介入狀態。
+- **操作控制**：支援暫停、繼續與重置。
+
+## 使用方式
+
+開啟網站後即可操作，不需安裝程式。可調整車流與號誌參數，再啟動科技交警示範，觀察交通變化。
+
+## 專案目的
+
+透過互動模擬，探索科技輔助交通疏導的應用，作為交通教育與專題展示工具。
+
+本系統為模擬展示，尚未串接真實路口感測器或交通號誌設備。
