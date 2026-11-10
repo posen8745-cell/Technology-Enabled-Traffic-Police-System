@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="用兩個同步的 T 字路口，示範程式如何依排隊車數調整紅綠燈時間，讓車流恢復順暢。">
+<title>科技交警｜讓綠燈時間跟著車流走</title>
+<style>
+:root{--ink:#172e35;--muted:#62767b;--green:#087f68;--mint:#e1f2eb;--red:#dc654e;--line:#dbe5e2;--bg:#f6f8f4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}button,select{font:inherit}button{cursor:pointer}button,select{border:1px solid #c9d7d2;background:white;color:var(--ink);border-radius:9px;padding:10px 15px;min-height:44px}button:hover{background:#edf3ef}button:focus-visible,select:focus-visible{outline:3px solid #f3b74c;outline-offset:3px}.primary{background:var(--green);border-color:var(--green);color:white}.primary:hover{background:#096b59}button:disabled{opacity:.5;cursor:default}main{max-width:1240px;margin:auto;padding:24px 28px 30px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:17px;margin-bottom:23px}.brand{font-size:16px;font-weight:800;display:flex;gap:10px;align-items:center}.mark{display:flex;gap:3px;align-items:center;background:var(--ink);border-radius:6px;padding:8px}.mark i{height:6px;width:6px;border-radius:50%;background:#f9b455}.mark i:first-child{background:#eb7d65}.mark i:last-child{background:#6edeac}.eyebrow{color:var(--green);font-size:12px;font-weight:800;letter-spacing:1.5px}.header-note{font-size:12px;color:var(--muted)}h1{font-size:clamp(28px,3.4vw,43px);letter-spacing:-1.4px;margin:5px 0 10px;line-height:1.3}h1 em{font-style:normal;color:var(--green)}.lead{color:var(--muted);font-size:15px;line-height:1.8;margin:0;max-width:920px}.steps{display:flex;gap:26px;margin:19px 0 22px;font-size:13px;font-weight:700}.steps span{display:flex;align-items:center;gap:8px}.steps b{border:1px solid #a4c7b8;color:var(--green);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:11px}.steps span+span:before{content:'→';color:#a2b7ac;margin-right:5px}.toolbar{display:flex;align-items:center;gap:9px;margin-bottom:16px;flex-wrap:wrap}.toolbar label{font-size:12px;color:var(--muted);margin-left:4px}.clock{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.clock strong{font-size:21px;color:var(--ink);font-variant-numeric:tabular-nums}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:18px}.road-card{background:white;border:1px solid var(--line);border-radius:15px;overflow:hidden}.road-card.smart{border-color:#83bca5}.card-top{padding:16px 19px 11px;display:flex;justify-content:space-between;align-items:center;gap:10px}.card-top h2{font-size:18px;margin:0 0 4px}.card-top p{font-size:12px;color:var(--muted);margin:0}.tag{border-radius:99px;padding:5px 9px;white-space:nowrap;font-size:11px;background:#f8eee9;color:#ac4e39}.smart .tag{color:#066a51;background:var(--mint)}.queue{padding:0 19px 11px;display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--muted)}.queue strong{font-size:43px;line-height:1.1;font-weight:750;letter-spacing:-2px;color:var(--red);font-variant-numeric:tabular-nums}.smart .queue strong{color:var(--green)}.queue small{margin-left:auto;font-size:12px}.road{margin:0 12px;background:#1f3038;border-radius:9px;overflow:hidden;position:relative}.road canvas{display:block;width:100%;height:auto;aspect-ratio:560/260}.signal-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:12px 18px;border-bottom:1px solid #edf1ef}.lamp{display:inline-block;height:9px;width:9px;border-radius:50%;background:#e87560;vertical-align:0;margin-right:5px}.lamp.green{background:#0d9267}.lamp.yellow{background:#bd8915}.decision{padding:12px 18px;min-height:67px;background:#fafbf9;font-size:13px;line-height:1.65}.smart .decision{background:#eff7f1}.decision b{font-size:11px;color:var(--muted);display:block;font-weight:600}.decision span{font-weight:650}.summary{margin:18px 0;display:grid;grid-template-columns:1.2fr 1fr 1fr;background:var(--ink);color:white;border-radius:12px;overflow:hidden}.summary>div{padding:16px 22px;border-right:1px solid #ffffff1f}.summary>div:last-child{border:0}.summary p{font-size:12px;margin:0 0 5px;color:#bed2ca}.summary strong{font-size:24px;font-weight:700}.summary .hero-stat{color:#99e2b8}.summary small{font-size:12px;color:#bed2ca}.chart-panel{border:1px solid var(--line);border-radius:13px;background:white;padding:16px 20px}.chart-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.chart-head h2{font-size:15px;margin:0}.legend{display:flex;gap:16px;font-size:11px;color:var(--muted)}.legend span:before{content:'';display:inline-block;background:var(--red);width:16px;height:3px;vertical-align:middle;margin-right:5px}.legend span:last-child:before{background:var(--green)}.chart-panel svg{display:block;width:100%;height:142px;overflow:visible}.caption{font-size:11px;color:var(--muted);margin:5px 0 0;line-height:1.6}.story{display:flex;gap:12px;align-items:center;margin:14px 0 0;color:var(--green);font-size:13px;line-height:1.6}.story b{white-space:nowrap}footer{margin-top:22px;padding-top:15px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.8}details{margin-top:8px}summary{cursor:pointer;width:max-content;font-size:12px}details p{margin:7px 0;max-width:950px}.progress{height:3px;background:#dbe7df;border-radius:2px;margin-bottom:15px;overflow:hidden}.progress i{display:block;background:var(--green);height:100%;width:0;transition:width .2s linear}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:760px){main{padding:16px}.comparison{gap:12px}.steps{gap:10px;font-size:11px;flex-wrap:wrap}.steps span+span:before{margin-right:0}.clock{margin-left:0}.toolbar{gap:7px}.toolbar button{font-size:13px;padding:10px}.card-top{padding:13px 12px 10px}.card-top h2{font-size:16px}.card-top .tag{display:none}.queue{padding-left:12px;padding-right:12px}.queue strong{font-size:35px}.summary>div{padding:14px}.summary strong{font-size:21px}.header-note{font-size:10px}}@media(max-width:580px){.comparison{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.summary>div:first-child{grid-column:1/-1;border-right:0;border-bottom:1px solid #ffffff1f}.summary strong{font-size:23px}.clock{margin-left:auto}.toolbar label{margin-left:0}.toolbar .jump{flex:1}.steps{gap:9px}.steps b{width:21px;height:21px}.header-note{max-width:110px;text-align:right}.story{display:block}.chart-panel{padding:14px}.legend{font-size:10px}h1{letter-spacing:-.8px}.lead{font-size:14px}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>科技交警</div><span class="header-note">T 字路口 · 紅綠燈控制構想</span></header>
+<div class="eyebrow">讓綠燈時間，跟著車流走</div>
+<h1>車多的方向，<em>多給一點綠燈。</em></h1>
+<p class="lead">同樣的車流，左邊照固定秒數輪流放行；右邊由程式偵測排隊車數，調整綠燈時間。<br>看原本堵住的車隊，怎麼一步步消退。</p>
+<div class="steps"><span><b>01</b>偵測排隊車數</span><span><b>02</b>調整綠燈秒數</span><span><b>03</b>讓車隊逐漸消退</span></div>
+<div class="toolbar">
+<button class="primary" id="toggle">暫停</button><button id="reset">重新示範</button><button class="jump" id="jump">直接看 6 分鐘結果 ↗</button>
+<label for="speed">播放速度</label><select id="speed"><option value="1">1 倍</option><option value="4">4 倍</option><option value="12" selected>12 倍</option></select>
+<div class="clock">模擬時間 <strong id="clock">00:00</strong><span>/ 06:00</span></div>
+</div>
+<div class="progress" aria-hidden="true"><i id="progress"></i></div>
+<section class="comparison" aria-label="相同車流的同步比較">
+<article class="road-card">
+<div class="card-top"><div><h2>固定秒數</h2><p>兩個方向各給 22 秒綠燈</p></div><span class="tag">照時間輪流切換</span></div>
+<div class="queue">主線等候 <strong id="fixedQ">28</strong>輛<small>支線 <b id="fixedB">3</b> 輛</small></div>
+<div class="road"><canvas id="fixedRoad" width="1120" height="520" role="img" aria-label="固定秒數路口的車流動畫"></canvas></div>
+<div class="signal-row"><span><i class="lamp" id="fixedLamp"></i><span id="fixedSignal">主線紅燈</span></span><span id="fixedTime">支線綠燈剩 22 秒</span></div>
+<div class="decision"><b>固定控制</b><span id="fixedDecision">主線已排隊，仍等待支線的綠燈時間結束。</span></div>
+</article>
+<article class="road-card smart">
+<div class="card-top"><div><h2>程式控制</h2><p>依兩個方向的車數分配綠燈</p></div><span class="tag">隨車流自動調整</span></div>
+<div class="queue">主線等候 <strong id="smartQ">28</strong>輛<small>支線 <b id="smartB">3</b> 輛</small></div>
+<div class="road"><canvas id="smartRoad" width="1120" height="520" role="img" aria-label="程式控制路口的車流動畫"></canvas></div>
+<div class="signal-row"><span><i class="lamp" id="smartLamp"></i><span id="smartSignal">主線紅燈</span></span><span id="smartTime">支線綠燈剩 22 秒</span></div>
+<div class="decision"><b>程式正在判斷</b><span id="smartDecision">先偵測車數；支線無車且已放行 10 秒，就提早切換。</span></div>
+</article>
+</section>
+<section class="summary" aria-label="模擬比較結果">
+<div><p>程式控制後，主線目前</p><strong class="hero-stat" id="difference">從同樣的 28 輛開始</strong></div>
+<div><p>已通過路口 · 兩方向合計</p><strong><span id="fixedPassed">0</span> <small>→</small> <span id="smartPassed">0</span> <small>輛</small></strong><br><small>固定秒數 → 程式控制</small></div>
+<div><p>支線平均等候</p><strong id="branchWait">—</strong><br><small>程式控制仍輪流放行支線</small></div>
+</section>
+<section class="chart-panel" aria-label="主線等候車數折線圖">
+<div class="chart-head"><h2>車隊有沒有變短？</h2><div class="legend"><span>固定秒數</span><span>程式控制</span></div></div>
+<svg id="chart" viewBox="0 0 1100 142" role="img" aria-labelledby="chartTitle"><title id="chartTitle">主線等候車數隨模擬時間的變化</title><g id="grid"></g><path id="fixedPath" fill="none" stroke="#dc654e" stroke-width="2.5"/><path id="smartPath" fill="none" stroke="#087f68" stroke-width="2.5"/></svg>
+<p class="caption">縱軸：主線等候車數（輛）／橫軸：模擬時間。兩邊的起始車隊、每輛車的抵達時間與通行速度都相同。</p>
+</section>
+<p class="story" role="status" id="story"><b>先看到問題</b><span>主線已有 28 輛車，支線只有 3 輛。程式要把更多綠燈時間給需要的方向。</span></p>
+<footer>這是簡化的車流模擬，用來說明「程式調整紅綠燈時間」的想法；數字由本頁模擬計算，並非真實道路成效。
+<details><summary>示範怎麼運作？</summary><p>兩個路口從主線 28 輛、支線 3 輛開始，使用同一份預先產生的到車資料。固定控制：兩方向各 22 秒綠燈。程式控制：依車數調整主線綠燈（30–55 秒），支線綠燈（10–22 秒）；支線清空且放行滿 10 秒後可提早結束。每次切換都有 3 秒黃燈及 2 秒全紅，支線持續輪流獲得綠燈。示範選用主線車多的情境；效果會隨實際需求、路口配置與控制規則改變。</p></details>
+</footer>
+<div id="announcement" class="sr" aria-live="polite"></div>
+</main>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id), STEP=.1, END=360, GAP=23, SPEED=65;
+// A single deterministic arrival schedule is replayed at both junctions.
+let seed=7351;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+const arrivals=[];for(const [lane,interval] of [['main',1.7],['branch',7.8]]){let at=1;while(at<END){arrivals.push({at,lane});at+=interval*(.7+random()*.6);}}arrivals.sort((a,b)=>a.at-b.at);
+const PHASES=['branch','branchYellow','toMain','main','mainYellow','toBranch'];
+function vehicle(d,born){return{d,born};}
+function makeState(adaptive){return{adaptive,main:Array.from({length:28},(_,i)=>vehicle(i*GAP,0)),branch:Array.from({length:3},(_,i)=>vehicle(i*GAP,0)),phase:0,remaining:22,duration:22,elapsed:0,head:0,passed:0,branchPassed:0,branchWait:0,departed:[],events:[],decision:'先偵測車數；支線無車且已放行 10 秒，就提早切換。'};}
+let fixed,smart,t=0,index=0,history=[],running=true,acc=0,last=performance.now();
+function enter(s,p){s.phase=p;s.elapsed=0;const phase=PHASES[p];let duration=phase==='main'||phase==='branch'?22:phase.endsWith('Yellow')?3:2;
+if(s.adaptive&&phase==='main'){duration=Math.min(55,Math.max(30,Math.ceil(s.main.length*.95+15)));s.decision=`偵測主線 ${s.main.length} 輛 → 綠燈給 ${duration} 秒（固定為 22 秒）。`;s.events.push({at:t,type:'extend',duration});}
+if(s.adaptive&&phase==='branch'){duration=Math.min(22,Math.max(10,Math.ceil(s.branch.length*1.2+5)));s.decision=`支線有 ${s.branch.length} 輛 → 給 ${duration} 秒綠燈，輪流放行。`;}
+s.duration=duration;s.remaining=duration;}
+function add(s,lane){const q=s[lane];q.push(vehicle(Math.max(lane==='main'?350:100,(q.at(-1)?.d??0)+GAP),t));}
+function moveQueue(q,dt){for(let i=0;i<q.length;i++){const target=i===0?0:q[i-1].d+GAP;q[i].d=Math.max(target,q[i].d-SPEED*dt);}}
+function advanceState(s,dt){s.elapsed+=dt;s.remaining-=dt;
+if(s.adaptive&&s.phase===0&&s.elapsed>=10&&s.branch.length===0&&s.remaining>0){const saved=Math.ceil(s.remaining);s.remaining=0;s.decision=`支線已清空 → 提早結束 ${saved} 秒，準備放行主線。`;s.events.push({at:t,type:'shorten',saved});}
+if(s.remaining<=.00001){enter(s,(s.phase+1)%6);}
+moveQueue(s.main,dt);moveQueue(s.branch,dt);
+const active=s.phase===0?'branch':s.phase===3?'main':null;s.head=Math.min(1,s.head+dt);
+if(active&&s.head>=.8-1e-8&&s[active].length&&s[active][0].d<.001){const car=s[active].shift();s.head=0;s.passed++;s.departed.push({lane:active,age:0});if(active==='branch'){s.branchPassed++;s.branchWait+=t-car.born;}}
+for(const car of s.departed)car.age+=dt;s.departed=s.departed.filter(c=>c.age<4);
+}
+function tick(){if(t>=END)return;t=Math.min(END,Math.round((t+STEP)*10)/10);while(index<arrivals.length&&arrivals[index].at<=t){for(const s of[fixed,smart])add(s,arrivals[index].lane);index++;}advanceState(fixed,STEP);advanceState(smart,STEP);if(Math.round(t*10)%10===0)history.push({t,fixed:fixed.main.length,smart:smart.main.length});if(t>=END){running=false;$('announcement').textContent=`示範完成：固定秒數主線 ${fixed.main.length} 輛，程式控制 ${smart.main.length} 輛。`;}}
+function reset(){fixed=makeState(false);smart=makeState(true);t=0;index=0;history=[{t:0,fixed:28,smart:28}];acc=0;running=!matchMedia('(prefers-reduced-motion: reduce)').matches;last=performance.now();$('announcement').textContent='已重新示範，兩邊從同樣的車隊開始。';render();}
+function lampState(s,main){const green=main?3:0,yellow=main?4:1;return s.phase===green?'green':s.phase===yellow?'yellow':'red';}
+function drawCar(c,x,y,vertical,color){c.save();c.translate(x,y);if(vertical)c.rotate(-Math.PI/2);c.fillStyle='#0c2028';c.fillRect(-11,6,6,3);c.fillRect(5,6,6,3);c.fillStyle=color;c.beginPath();c.roundRect(-10,-6,20,12,3);c.fill();c.fillStyle='#213e4b';c.fillRect(0,-4,5,8);c.fillStyle='#ffffffb0';c.fillRect(8,-4,2,3);c.fillRect(8,1,2,3);c.restore();}
+function drawRoad(s,id){const canvas=$(id),c=canvas.getContext('2d');c.setTransform(2,0,0,2,0,0);c.clearRect(0,0,560,260);c.fillStyle='#21323b';c.fillRect(0,0,560,260);c.fillStyle='#30444e';c.fillRect(0,92,560,65);c.fillRect(345,125,68,140);c.strokeStyle='#9db2b7';c.lineWidth=1;c.setLineDash([9,12]);c.beginPath();c.moveTo(0,149);c.lineTo(560,149);c.moveTo(355,170);c.lineTo(355,260);c.stroke();c.setLineDash([]);
+// Stop lines and a visible detection zone.
+c.fillStyle='#dce7e6';c.fillRect(323,97,3,40);c.fillRect(368,180,40,3);c.strokeStyle=s.adaptive?'#59bc9980':'#c8856980';c.setLineDash([4,5]);c.strokeRect(15,101,298,35);c.setLineDash([]);
+c.font='12px system-ui';c.fillStyle='#c8d9d9';c.fillText('主線 →',16,81);c.fillText('支線 ↑',430,233);c.fillStyle=s.adaptive?'#93d9bb':'#ecc3b4';c.font='11px system-ui';c.fillText(s.adaptive?'偵測車數，調整秒數':'不看車數，固定切換',16,25);
+for(let i=s.main.length-1;i>=0;i--){const car=s.main[i],x=310-car.d;if(x>-12&&x<335)drawCar(c,x,119,false,'#86bbee');}
+for(let i=s.branch.length-1;i>=0;i--){const car=s.branch[i],y=195+car.d;if(y<275)drawCar(c,387,y,true,'#f1b75a');}
+for(const car of s.departed){const d=car.age*100;if(car.lane==='main')drawCar(c,310+d,119,false,'#86bbee');else if(d<76)drawCar(c,387,195-d,true,'#f1b75a');else drawCar(c,387+(d-76),119,false,'#f1b75a');}
+function signal(x,y,state){c.fillStyle='#12242b';c.beginPath();c.roundRect(x-8,y-9,65,22,5);c.fill();const colors={red:'#ff7865',green:'#63dfac',yellow:'#f8cc65'};c.fillStyle=colors[state];c.beginPath();c.arc(x+3,y+2,4,0,Math.PI*2);c.fill();c.fillStyle='#f1f6f2';c.font='bold 11px system-ui';c.fillText(state==='green'?'綠燈':state==='yellow'?'黃燈':'紅燈',x+14,y+6);}
+signal(320,67,lampState(s,true));signal(430,175,lampState(s,false));
+const overflow=s.main.filter(v=>310-v.d<0).length;if(overflow){c.fillStyle='#182d35ee';c.beginPath();c.roundRect(12,164,155,25,5);c.fill();c.fillStyle='#e5eeee';c.font='11px system-ui';c.fillText(`← 畫面外還有 ${overflow} 輛等候`,20,181);}
+if(s.adaptive){c.fillStyle='#182d35';c.beginPath();c.roundRect(15,216,290,28,5);c.fill();c.fillStyle='#9cdebc';c.font='12px system-ui';c.fillText(`主線 ${s.main.length} 輛 · 支線 ${s.branch.length} 輛 → 分配綠燈`,25,234);}}
+function describe(s,prefix){$(prefix+'Q').textContent=s.main.length;$(prefix+'B').textContent=s.branch.length;const state=lampState(s,true);$(prefix+'Lamp').className='lamp '+state;$(prefix+'Signal').textContent='主線'+({red:'紅燈',green:'綠燈',yellow:'黃燈'}[state]);const name=PHASES[s.phase];const text=name==='main'?'主線綠燈':name==='branch'?'支線綠燈':name.endsWith('Yellow')?'黃燈過渡':'全紅切換';$(prefix+'Time').textContent=`${text}剩 ${Math.max(0,Math.ceil(s.remaining))} 秒`;$(prefix+'Passed').textContent=s.passed;}
+let previousChartSecond=-1;
+function drawChart(){const sec=Math.floor(t);if(sec===previousChartSecond&&t>0)return;previousChartSecond=sec;const max=Math.max(40,Math.ceil(Math.max(...history.map(h=>Math.max(h.fixed,h.smart)))/20)*20),x=v=>42+v/END*1040,y=v=>112-v/max*96;let grid='';for(let i=0;i<=4;i++){const value=max*i/4,yy=y(value);grid+=`<line x1="42" y1="${yy}" x2="1082" y2="${yy}" stroke="#e9eeeb"/><text x="31" y="${yy+4}" text-anchor="end" fill="#72847e" font-size="10">${value}</text>`;}for(let m=0;m<=6;m++)grid+=`<text x="${x(m*60)}" y="134" text-anchor="middle" fill="#72847e" font-size="10">${m} 分</text>`;$('grid').innerHTML=grid;for(const key of['fixed','smart'])$(key+'Path').setAttribute('d',history.map((h,i)=>`${i?'L':'M'}${x(h.t).toFixed(1)},${y(h[key]).toFixed(1)}`).join(' '));$('chartTitle').textContent=`主線等候車數比較：固定秒數 ${fixed.main.length} 輛；程式控制 ${smart.main.length} 輛。`;}
+function render(){describe(fixed,'fixed');describe(smart,'smart');drawRoad(fixed,'fixedRoad');drawRoad(smart,'smartRoad');$('clock').textContent=String(Math.floor(t/60)).padStart(2,'0')+':'+String(Math.floor(t%60)).padStart(2,'0');$('progress').style.width=t/END*100+'%';$('toggle').textContent=t>=END?'示範完成':running?'暫停':'繼續';$('toggle').disabled=t>=END;$('jump').disabled=t>=END;$('smartDecision').textContent=smart.decision;
+$('fixedDecision').textContent=fixed.phase===0?`支線${fixed.branch.length===0?'已經沒車':'正在放行'}，仍按固定秒數等待切換。`:fixed.phase===3?'主線放行 22 秒，時間到就切換，不隨車數調整。':'完成黃燈與全紅過渡，再切換下一方向。';
+const diff=fixed.main.length-smart.main.length;$('difference').textContent=t<1?'從同樣的 28 輛開始':diff>0?`少等 ${diff} 輛車`:diff===0?'兩邊車隊暫時相同':`暫時多等 ${-diff} 輛車`;$('branchWait').textContent=smart.branchPassed?Math.round(smart.branchWait/smart.branchPassed)+' 秒':'尚未有車通過';
+let title='先看到問題',body='主線已有 28 輛車，支線只有 3 輛。程式要把更多綠燈時間給需要的方向。';if(t>=15){title='程式開始調整';body='支線沒車就提早切換；主線車多就延長綠燈，讓車隊有時間通過。';}if(t>=120){title='看車隊變化';body=`同一批到車資料下，主線目前是 ${fixed.main.length} 輛 → ${smart.main.length} 輛；綠燈時間的分配正在改變排隊長度。`;}if(t>=END){title='這就是要表達的想法';body=`透過程式調整綠燈，這次示範的主線等候從固定控制 ${fixed.main.length} 輛，降至 ${smart.main.length} 輛。`;}$('story').replaceChildren(Object.assign(document.createElement('b'),{textContent:title}),Object.assign(document.createElement('span'),{textContent:body}));drawChart();}
+$('toggle').addEventListener('click',()=>{if(t>=END)return;running=!running;acc=0;render();});$('reset').addEventListener('click',()=>{previousChartSecond=-1;reset();});$('jump').addEventListener('click',()=>{while(t<END)tick();acc=0;render();});$('speed').addEventListener('change',()=>{acc=0;});
+function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;if(running){acc+=dt*Number($('speed').value);while(acc>=STEP&&t<END){acc-=STEP;tick();}}render();requestAnimationFrame(frame);}
+document.addEventListener('visibilitychange',()=>{last=performance.now();acc=0;});reset();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
