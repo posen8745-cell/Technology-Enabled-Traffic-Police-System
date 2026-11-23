@@ -1,0 +1,44 @@
+[
+  {
+    "initial": 7,
+    "arrivals": 138,
+    "fixedMain": 1,
+    "smartMain": 3,
+    "fixedBranch": 3,
+    "smartBranch": 0,
+    "fixedPassed": 143,
+    "smartPassed": 144,
+    "fixedAverage": 21.1,
+    "smartAverage": 13.4,
+    "fixedMax": 52.7,
+    "smartMax": 46
+  },
+  {
+    "initial": 20,
+    "arrivals": 138,
+    "fixedMain": 1,
+    "smartMain": 3,
+    "fixedBranch": 3,
+    "smartBranch": 0,
+    "fixedPassed": 156,
+    "smartPassed": 157,
+    "fixedAverage": 30.9,
+    "smartAverage": 16.9,
+    "fixedMax": 115,
+    "smartMax": 57
+  },
+  {
+    "initial": 50,
+    "arrivals": 138,
+    "fixedMain": 10,
+    "smartMain": 3,
+    "fixedBranch": 3,
+    "smartBranch": 0,
+    "fixedPassed": 177,
+    "smartPassed": 187,
+    "fixedAverage": 81.8,
+    "smartAverage": 34,
+    "fixedMax": 243.1,
+    "smartMax": 126.8
+  }
+]
